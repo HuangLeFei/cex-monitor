@@ -1,15 +1,15 @@
+use crate::tg;
+use anyhow::Result;
 use chrono::Utc;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use futures_util::{SinkExt, StreamExt};
+use ring::hmac;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use anyhow::Result;
-use ring::hmac;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use uuid::Uuid;
-use crate::tg;
 
 static mut LAST_PUBLISHED: Option<u64> = None;
 
@@ -28,15 +28,15 @@ pub async fn check_binance_wss() -> Result<()> {
         let random = Uuid::new_v4().simple().to_string();
         let topic = "com_announcement_en";
         let recv_window = 30000;
-        
+
         // 排序参数
         let params_for_signature = format!(
             "random={}&recvWindow={}&timestamp={}&topic={}",
             random, recv_window, timestamp, topic
         );
-        
+
         let signature = sign_query(&params_for_signature, api_secret);
-        
+
         // 构建最终 URL
         let final_params = format!(
             "random={}&recvWindow={}&timestamp={}&topic={}&signature={}",
@@ -63,8 +63,13 @@ pub async fn check_binance_wss() -> Result<()> {
                     "command": "SUBSCRIBE",
                     "value": topic
                 });
-                
-                if let Err(e) = write.lock().await.send(Message::Text(sub.to_string())).await {
+
+                if let Err(e) = write
+                    .lock()
+                    .await
+                    .send(Message::Text(sub.to_string()))
+                    .await
+                {
                     eprintln!("❌ 发送订阅请求失败 {}", e);
                     continue;
                 }
@@ -92,39 +97,61 @@ pub async fn check_binance_wss() -> Result<()> {
                 while let Some(msg) = read.next().await {
                     match msg {
                         Ok(Message::Text(txt)) => {
-                            
                             if let Ok(v) = serde_json::from_str::<Value>(&txt) {
-                                
                                 // 数据消息
                                 if let Some(msg_type) = v.get("type").and_then(|x| x.as_str()) {
-                                    
                                     // 根据消息类型处理不同的数据
                                     match msg_type {
-
                                         "COMMAND" => {
-
-                                            println!("📋 订阅币安结果 {}", txt, );
-                                            
+                                            println!("📋 订阅币安结果 {}", txt,);
                                         }
 
                                         "DATA" => {
-                                            if let Some(data_str) = v.get("data").and_then(|x| x.as_str()) {
-                                                if let Ok(inner_data) = serde_json::from_str::<Value>(data_str) {
-                                                    if let Some(ts) = inner_data.get("publishDate").and_then(|x| x.as_u64()) {
+                                            if let Some(data_str) =
+                                                v.get("data").and_then(|x| x.as_str())
+                                            {
+                                                if let Ok(inner_data) =
+                                                    serde_json::from_str::<Value>(data_str)
+                                                {
+                                                    if let Some(ts) = inner_data
+                                                        .get("publishDate")
+                                                        .and_then(|x| x.as_u64())
+                                                    {
                                                         unsafe {
-                                                            if LAST_PUBLISHED.map_or(true, |prev| prev != ts) {
+                                                            if LAST_PUBLISHED
+                                                                .map_or(true, |prev| prev != ts)
+                                                            {
                                                                 LAST_PUBLISHED = Some(ts);
 
-                                                                let title_outer = inner_data.get("title").and_then(|x| x.as_str()).unwrap_or("无标题");
-                                                                let catalog_id = inner_data.get("catalogId").and_then(|x| x.as_u64()).unwrap_or(0);
+                                                                let title_outer = inner_data
+                                                                    .get("title")
+                                                                    .and_then(|x| x.as_str())
+                                                                    .unwrap_or("无标题");
+                                                                let catalog_id = inner_data
+                                                                    .get("catalogId")
+                                                                    .and_then(|x| x.as_u64())
+                                                                    .unwrap_or(0);
 
                                                                 if catalog_id == 48 {
-                                                                    let title = inner_data.get("title").and_then(|x| x.as_str()).unwrap_or(title_outer);
+                                                                    let title = inner_data
+                                                                        .get("title")
+                                                                        .and_then(|x| x.as_str())
+                                                                        .unwrap_or(title_outer);
 
-                                                                    // println!("🚨 新公告: {}", title);
+                                                                    println!(
+                                                                        "🚨 新公告: {}",
+                                                                        title
+                                                                    );
 
-                                                                    if let Err(e) = tg::send_to_tg("币安", title, None).await {
-                                                                        eprintln!("❌ 发送到TG失败: {}", e);
+                                                                    if let Err(e) = tg::send_to_tg(
+                                                                        "币安", title, None,
+                                                                    )
+                                                                    .await
+                                                                    {
+                                                                        eprintln!(
+                                                                            "❌ 发送到TG失败: {}",
+                                                                            e
+                                                                        );
                                                                     }
                                                                 } else {
                                                                     // let title = inner_data.get("title").and_then(|x| x.as_str()).unwrap_or(title_outer);
@@ -147,7 +174,11 @@ pub async fn check_binance_wss() -> Result<()> {
                                         }
                                     }
                                 } else {
-                                    println!("📋 未知格式消息: {}", serde_json::to_string_pretty(&v).unwrap_or_else(|_| "Parse error".to_string()));
+                                    println!(
+                                        "📋 未知格式消息: {}",
+                                        serde_json::to_string_pretty(&v)
+                                            .unwrap_or_else(|_| "Parse error".to_string())
+                                    );
                                 }
                             } else {
                                 println!("❌ 解析 JSON 失败: {}", txt);
@@ -159,7 +190,7 @@ pub async fn check_binance_wss() -> Result<()> {
                         }
 
                         // 每 30 秒发送一次 Ping
-	                    // BN 收到 Ping ，回复 Pong
+                        // BN 收到 Ping ，回复 Pong
                         Ok(Message::Pong(_)) => {
                             // println!("🏓 收到了Pong");
                         }
@@ -179,7 +210,7 @@ pub async fn check_binance_wss() -> Result<()> {
                         }
                     }
                 }
-                
+
                 stop_ping.notify_waiters();
                 println!("🔄 重新连接");
             }
@@ -187,7 +218,6 @@ pub async fn check_binance_wss() -> Result<()> {
             Err(e) => {
                 eprintln!("❌ 报错 {}", e);
             }
-
         }
 
         // 断开5秒重连

@@ -1,12 +1,12 @@
 // mod ipidea;
 // mod binance;
-mod okx;
+mod binance_wss;
 mod bitget;
 mod bybit;
 mod gate;
 mod kucoin;
+mod okx;
 mod tg;
-mod binance_wss;
 
 use anyhow::Result;
 // use reqwest::{Client, Proxy};
@@ -15,14 +15,13 @@ use tokio::time::{sleep, Duration};
 // 主函数
 #[tokio::main]
 async fn main() -> Result<()> {
-    
     // 每个 CEX 单独一个任务（协程），互不影响
     tokio::spawn(async {
         if let Err(e) = binance_wss::check_binance_wss().await {
             eprintln!("❌ Binance-wss 停止: {}", e);
         }
     });
-    
+
     // tokio::spawn(async {
     //     if let Err(e) = binance_monitor().await {
     //         eprintln!("❌ Binance-轮询 监听器退出: {}", e);
@@ -65,7 +64,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-
 // Binance 监听
 // async fn binance_monitor() -> Result<()> {
 
@@ -90,14 +88,14 @@ async fn main() -> Result<()> {
 //                 continue;
 //             }
 //         };
-        
+
 //         // 查询BN公告
 //         // 如果返回异常，则更换IP
 //         if let Err(err) = binance::check_binance(&client).await {
 //             eprintln!("❌ 请求Binance失败: {}, 正在更换IP", err);
 //             proxy = ipidea::fetch_proxy().await?;
 //         }
-        
+
 //         // 每10秒查询一次
 //         sleep(Duration::from_secs(10)).await;
 //     }
@@ -105,7 +103,6 @@ async fn main() -> Result<()> {
 
 // OKX 监听
 async fn okx_monitor() -> Result<()> {
-
     loop {
         // 查询OKX公告
         if let Err(err) = okx::check_okx().await {
@@ -115,7 +112,6 @@ async fn okx_monitor() -> Result<()> {
         // 5秒查询一次
         sleep(Duration::from_secs(5)).await;
     }
-
 }
 
 // Bitget 监听
@@ -160,7 +156,6 @@ async fn gate_monitor() -> Result<()> {
 
 // KuCoin 监听
 async fn kucoin_monitor() -> Result<()> {
-
     loop {
         // 查询KuCoin公告
         if let Err(err) = kucoin::check_kucoin().await {

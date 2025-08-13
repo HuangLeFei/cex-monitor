@@ -1,14 +1,13 @@
 use reqwest::Client;
 use serde_json::json;
 
-// Bot Token
-const TELEGRAM_BOT_TOKEN: &str = "bot token";
+// Bot Token （替换自己的）
+const TELEGRAM_BOT_TOKEN: &str = "8419657234:AAErz3Z0zEWjn01No9X8e4aPRARqqgcWQK4";
 
-// 群组ID
-const TELEGRAM_CHAT_ID: &str = "频道id";
-// 子话题ID，若无开启话题，可以忽略
-const TELEGRAM_TOPIC_ID: i64 = 0;
-
+// 群组ID（替换自己的）
+const TELEGRAM_CHAT_ID: &str = "-1002856284231";
+// 子话题ID，若无开启话题，可以忽略（替换自己的）
+const TELEGRAM_TOPIC_ID: i64 = 3;
 
 pub async fn send_to_tg(cex: &str, message: &str, url: Option<&str>) -> Result<(), anyhow::Error> {
     let text = if let Some(link) = url {
@@ -34,7 +33,10 @@ pub async fn send_to_tg(cex: &str, message: &str, url: Option<&str>) -> Result<(
     });
 
     let res = Client::new()
-        .post(&format!("https://api.telegram.org/bot{}/sendMessage", TELEGRAM_BOT_TOKEN))
+        .post(&format!(
+            "https://api.telegram.org/bot{}/sendMessage",
+            TELEGRAM_BOT_TOKEN
+        ))
         .json(&payload)
         .send()
         .await?;

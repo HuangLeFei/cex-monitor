@@ -1,14 +1,13 @@
+use crate::tg;
 use anyhow::Result;
 use reqwest::Client;
 use serde_json::Value;
-use crate::tg;
 
 // 记录最新公告的发布时间戳
 static mut LAST_ID_BYBIT: Option<i64> = None;
 
 // 检查 bybit 公告
 pub async fn check_bybit() -> Result<()> {
-
     // 创建 HTTP 客户端
     let client = Client::new();
 
@@ -34,7 +33,7 @@ pub async fn check_bybit() -> Result<()> {
 
                     unsafe {
                         if Some(publish_time) != LAST_ID_BYBIT {
-                            // println!("📢 Bybit 新公告:\n📄 {}\n🔗 {}", title, url);
+                            println!("📢 Bybit 新公告:\n📄 {}\n🔗 {}", title, url);
                             if let Err(e) = tg::send_to_tg("Bybit", title, Some(url)).await {
                                 eprintln!("❌ 发送到TG失败: {}", e);
                             }
